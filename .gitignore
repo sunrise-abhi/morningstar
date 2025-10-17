@@ -64,3 +64,5 @@ tmp/
 temp/
 *.tmp
 
+# Railway
+.railway

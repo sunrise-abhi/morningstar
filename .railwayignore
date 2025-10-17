@@ -1,0 +1,40 @@
+# Railway ignore file
+# Files that should not be deployed to Railway
+
+# Development files
+.env.local
+.env.development
+.env.test
+
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Testing
+coverage/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation (optional - include if you want)
+# docs/
+# *.md
+
+# Git
+.git/
+.gitignore
+
+# Misc
+.DS_Store
+*.log
+
