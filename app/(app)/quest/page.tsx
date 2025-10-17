@@ -35,7 +35,7 @@ export default async function QuestPage() {
               <CardHeader>
                 <CardTitle>Other Goals</CardTitle>
                 <CardDescription>
-                  Goals you're tracking
+                  Goals you&apos;re tracking
                 </CardDescription>
               </CardHeader>
               <CardContent>

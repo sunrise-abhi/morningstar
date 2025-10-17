@@ -20,7 +20,7 @@ export default function VerifyPage() {
         <CardContent className="text-center text-sm text-muted-foreground">
           <p>Click the link in your email to sign in to your account.</p>
           <p className="mt-4">
-            You can close this window once you've clicked the link.
+            You can close this window once you&apos;ve clicked the link.
           </p>
         </CardContent>
       </Card>

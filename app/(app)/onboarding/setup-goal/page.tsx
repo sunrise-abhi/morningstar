@@ -21,7 +21,7 @@ export default async function SetupGoalPage() {
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-4">🎯 Your Quest</h1>
           <p className="text-lg text-muted-foreground">
-            What's your #1 life goal? This will guide your journey.
+            What&apos;s your #1 life goal? This will guide your journey.
           </p>
         </div>
         <GoalSetupForm userId={session.user.id} />

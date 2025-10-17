@@ -55,7 +55,7 @@ export function HabitQuickLog({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Today's Habits</CardTitle>
+        <CardTitle>Today&apos;s Habits</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
