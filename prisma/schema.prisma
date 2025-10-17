@@ -1,0 +1,407 @@
+// Morningstar Database Schema
+// PostgreSQL with Prisma ORM
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// AUTHENTICATION & USER MANAGEMENT
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  profile       UserProfile?
+  goals         Goal[]
+  journalEntries JournalEntry[]
+  morningPages  MorningPage[]
+  habits        Habit[]
+  habitLogs     HabitLog[]
+  moodboardItems MoodboardItem[]
+  breathworkSessions BreathworkSession[]
+  aiInsights    AIInsight[]
+  notifications UserNotification[]
+  preferences   UserPreferences?
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================================
+// USER PROFILE & PREFERENCES
+// ============================================================================
+
+model UserProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  bio       String?  @db.Text
+  timezone  String   @default("America/New_York")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserPreferences {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  
+  // Morning Pages Settings
+  morningPagesCutoffTime Int @default(12) // Hour of day (24hr format) after which gate is lifted
+  enableVoiceInput       Boolean @default(true)
+  
+  // Notification Settings
+  notificationsEnabled   Boolean @default(true)
+  morningPagesReminder   Boolean @default(true)
+  morningPagesReminderTime String @default("08:00") // HH:MM format
+  habitReminders         Boolean @default(true)
+  habitRemindersTime     String @default("20:00")
+  emailNotifications     Boolean @default(false)
+  
+  // AI Settings
+  aiAnalysisEnabled      Boolean @default(true)
+  aiAnalysisFrequency    String @default("daily") // daily, weekly, manual
+  
+  // UI Settings
+  theme                  String @default("light") // light, dark, auto
+  showMoodboardBackground Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+// ============================================================================
+// GOALS (QUEST SYSTEM)
+// ============================================================================
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+  isPrimary   Boolean  @default(false) // The #1 life goal
+  status      String   @default("active") // active, achieved, archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  achievedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goalReflections GoalReflection[]
+
+  @@index([userId, isPrimary])
+  @@map("goals")
+}
+
+model GoalReflection {
+  id             String   @id @default(cuid())
+  goalId         String
+  userId         String
+  reflectionText String   @db.Text
+  alignmentScore Int?     // 1-10 scale, optional
+  createdAt      DateTime @default(now())
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, createdAt])
+  @@map("goal_reflections")
+}
+
+// ============================================================================
+// MORNING PAGES
+// ============================================================================
+
+model MorningPage {
+  id           String   @id @default(cuid())
+  userId       String
+  content      String   @db.Text
+  wordCount    Int      @default(0)
+  date         DateTime @default(now()) @db.Date // Date only, no time
+  isVoiceEntry Boolean  @default(false)
+  audioUrl     String?  // If voice recording is stored
+  completedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date]) // One morning page per user per day
+  @@index([userId, date])
+  @@map("morning_pages")
+}
+
+// ============================================================================
+// JOURNAL ENTRIES
+// ============================================================================
+
+model JournalEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String?  @db.VarChar(200)
+  content     String   @db.Text
+  wordCount   Int      @default(0)
+  mood        String?  @db.VarChar(50) // happy, sad, anxious, motivated, etc.
+  tags        String[] // Array of tags for categorization
+  isPrivate   Boolean  @default(false)
+  date        DateTime @default(now()) @db.Date
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiAnalysis AIAnalysis?
+
+  @@index([userId, date])
+  @@index([userId, createdAt])
+  @@map("journal_entries")
+}
+
+// ============================================================================
+// AI ANALYSIS & INSIGHTS
+// ============================================================================
+
+model AIAnalysis {
+  id              String   @id @default(cuid())
+  journalEntryId  String   @unique
+  userId          String
+  
+  // Analysis Results
+  detectedMood    String?  @db.VarChar(50)
+  moodScore       Float?   // -1 to 1 scale
+  themes          String[] // Detected themes/topics
+  sentiment       String?  // positive, negative, neutral, mixed
+  keyPhrases      String[] // Important phrases extracted
+  
+  // Insights
+  observations    String?  @db.Text
+  patterns        String?  @db.Text
+  encouragement   String?  @db.Text
+  goalAlignment   Float?   // 0-1 score of alignment with primary goal
+  
+  // Metadata
+  modelUsed       String   @default("gpt-4")
+  tokensUsed      Int?
+  analyzedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  @@index([userId, analyzedAt])
+  @@map("ai_analyses")
+}
+
+model AIInsight {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   @db.VarChar(50) // weekly_summary, pattern_detected, milestone, encouragement
+  title       String   @db.VarChar(200)
+  content     String   @db.Text
+  priority    Int      @default(0) // Higher = more important
+  isRead      Boolean  @default(false)
+  validUntil  DateTime? // Optional expiry for time-sensitive insights
+  metadata    Json?    // Additional structured data
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("ai_insights")
+}
+
+// ============================================================================
+// HABIT TRACKING
+// ============================================================================
+
+model Habit {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  type        String   @db.VarChar(20) // positive, negative
+  frequency   String   @default("daily") // daily, weekly
+  target      Int?     // Target count (e.g., 5 times per week)
+  unit        String?  @db.VarChar(50) // Optional unit (e.g., "minutes", "glasses")
+  color       String?  @db.VarChar(7) // Hex color for UI
+  icon        String?  @db.VarChar(50) // Icon identifier
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  archivedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs HabitLog[]
+
+  @@index([userId, isActive])
+  @@map("habits")
+}
+
+model HabitLog {
+  id        String   @id @default(cuid())
+  habitId   String
+  userId    String
+  date      DateTime @db.Date
+  completed Boolean  @default(false)
+  count     Int      @default(1) // For countable habits
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date]) // One log per habit per day
+  @@index([userId, date])
+  @@index([habitId, date])
+  @@map("habit_logs")
+}
+
+// ============================================================================
+// MOODBOARD
+// ============================================================================
+
+model MoodboardItem {
+  id          String   @id @default(cuid())
+  userId      String
+  imageUrl    String   @db.Text // URL to stored image
+  thumbnailUrl String? @db.Text // Optimized thumbnail
+  title       String?  @db.VarChar(100)
+  description String?  @db.Text
+  tags        String[] // Categorization tags
+  order       Int      @default(0) // Display order
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, order])
+  @@map("moodboard_items")
+}
+
+// ============================================================================
+// BREATHWORK & MEDITATION
+// ============================================================================
+
+model BreathworkSession {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String   @db.VarChar(50) // box_breathing, 4_7_8, custom
+  durationSeconds Int    // Actual duration completed
+  targetDuration Int?    // Intended duration
+  completed     Boolean  @default(true)
+  notes         String?  @db.Text
+  moodBefore    String?  @db.VarChar(50) // Optional pre-session mood
+  moodAfter     String?  @db.VarChar(50) // Optional post-session mood
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("breathwork_sessions")
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model UserNotification {
+  id         String   @id @default(cuid())
+  userId     String
+  type       String   @db.VarChar(50) // morning_pages_reminder, habit_reminder, insight
+  title      String   @db.VarChar(200)
+  body       String   @db.Text
+  actionUrl  String?  @db.Text
+  isRead     Boolean  @default(false)
+  sentAt     DateTime?
+  scheduledFor DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("user_notifications")
+}
+
+// ============================================================================
+// ANALYTICS & TRACKING (Optional - for future insights)
+// ============================================================================
+
+model DailySnapshot {
+  id              String   @id @default(cuid())
+  userId          String
+  date            DateTime @unique @db.Date
+  
+  // Completion flags
+  morningPagesDone Boolean @default(false)
+  journalEntries   Int     @default(0)
+  habitsLogged     Int     @default(0)
+  breathworkSessions Int   @default(0)
+  
+  // Aggregated metrics
+  totalWords       Int     @default(0)
+  overallMood      String? @db.VarChar(50)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId, date])
+  @@map("daily_snapshots")
+}
+
